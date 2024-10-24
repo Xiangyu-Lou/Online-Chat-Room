@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Multi-Room Chat</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        div {
+            margin-bottom: 20px;
+            padding: 10px;
+        }
+        #chatlog {
+            height: 300px;
+            overflow: auto;
+            border: 1px solid #000;
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+        #room_users, #chatlog {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        input[type=text], input[type=password] {
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            margin-right: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        button {
+            background-color: #4CAF50; /* Green */
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        hr {
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+        #is_private {
+            display: none;
+        }
+        label[for="is_private"] {
+            display: none;
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        var socketio = io.connect();
+
+        socketio.on("message_to_client", function(data) {
+            // Append the message and username to the chat log
+            var chatlog = document.getElementById("chatlog");
+            var messageLine = document.createElement("div");
+            var messageText = document.createTextNode(data['username'] + ": " + data['message']);
+            messageLine.appendChild(messageText);
+            chatlog.appendChild(document.createElement("hr"));
+            chatlog.appendChild(messageLine);
+        });
+
+
+        socketio.on("room_created", function(data) {
+            alert("Room '" + data.roomName + "' created successfully!");
+        });
+
+        socketio.on("room_creation_failed", function(data) {
+            alert(data.message);
+        });
+
+        socketio.on("room_joined", function(data) {
+            alert("Joined room: " + data.roomName);
+        });
+
+        socketio.on("room_join_failed", function(data) {
+            alert(data.message);
+        });
+
+        socketio.on("room_left", function(data) {
+            alert("exit successfully!");
+        });
+
+        socketio.on("kicked", function(data) {
+            alert("You have been kicked from room: " + data.roomName);
+        });
+
+        socketio.on("banned", function(data) {
+            alert("You have been banned from room: " + data.roomName);
+        });
+
+        socketio.on("room_users", function(data) {
+    var usersList = document.getElementById("room_users");
+    usersList.innerHTML = ""; // Clear the list
+    data.users.forEach(function(username) {
+        var userItem = document.createElement("div");
+        userItem.textContent = username;
+        usersList.appendChild(userItem);
+    });
+});
+
+
+        function setUsername() {
+            var username = document.getElementById("username_input").value;1
+            socketio.emit("set_username", {username: username});
+            alert("Username set successfully!");
+         }
+
+         function sendMessage() {
+            var msg = document.getElementById("message_input").value;
+            socketio.emit("message_to_room", {message: msg});
+         }
+
+        function createRoom() {
+            var roomName = document.getElementById("room_name_input").value;
+            var isPrivate = document.getElementById("is_private").checked;
+            var password = isPrivate ? document.getElementById("password_input").value : "";
+            socketio.emit("create_room", { roomName: roomName, isPrivate: isPrivate, password: password });
+        }
+
+        function joinRoom() {
+            var roomName = document.getElementById("room_name_input").value;
+            var password = document.getElementById("password_input").value;
+            socketio.emit("join_room", { roomName: roomName, password: password });
+        }
+
+        function leaveRoom() {
+            socketio.emit("leave_room");
+        }
+
+        function kickUser() {
+            var username = document.getElementById("user_id_input").value; // Assuming this is the input field where the room creator types the username to kick
+            socketio.emit("kick_user", { username: username });
+        }
+
+        function banUser() {
+            var username = document.getElementById("user_id_input").value;
+            var roomName = document.getElementById("room_name_input").value; // Assuming this is the input field where the room name is specified
+            socketio.emit("ban_user", { username: username, roomName: roomName });
+        }
+
+    </script>
+    
+</head>
+<body>
+    <!-- Add this new section for username -->
+    <div>
+        <input type="text" id="username_input" placeholder="Enter your username"/>
+        <button onclick="setUsername()">Set Username</button>
+    </div>
+    <hr/>
+
+    <!-- Existing message input and send button -->
+    <div>User List</div>
+    <div id="room_users"></div>
+    <div id="chatlog"></div>
+    <div>
+        <input type="text" id="message_input" placeholder="Enter message"/>
+        <button onclick="sendMessage()">Send</button>
+        <button onclick="leaveRoom()">Leave Room</button>
+        <!-- <button id="exportChatLog">Export Chatlog</button> -->
+    </div>
+    <hr/>
+
+    <!-- Existing room management inputs and buttons -->
+    <div>
+        <input type="text" id="room_name_input" placeholder="Room Name"/>
+        <!-- <input type="checkbox" id="is_private">Private Room</input> -->
+        <input type="checkbox" id="is_private"> Private Room
+        <label for="is_private">Private Room</label>
+        <input type="text" id="password_input" placeholder="Password (Optional)"/>
+        <button onclick="createRoom()">Create Room</button>
+        <button onclick="joinRoom()">Join Room</button>
+    </div>
+    <hr/>
+
+    <!-- Existing user management inputs and buttons -->
+    <div>
+        <input type="text" id="user_id_input" placeholder="User Name"/>
+        <button onclick="kickUser()">Kick User</button>
+        <button onclick="banUser()">Ban User</button>
+    </div>
+</body>
+</html>
